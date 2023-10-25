@@ -170,8 +170,7 @@ def calc_disc(disc_func, z, nodepairs_f, nodepairs_cf):
         mean_cf = X_cf.mean(0)
         loss_disc = torch.sqrt(F.mse_loss(mean_f, mean_cf) + 1e-6)
     elif disc_func == 'kl':
-        # TODO: kl divergence
-        pass
+        loss_disc = F.kl_div(F.log_softmax(X_f,dim=0),F.softmax(X_cf,dim=0),reduction='batchmean')
     elif disc_func == 'w':
         # Wasserstein distance
         dist = SamplesLoss(loss="sinkhorn", p=2, blur=.05)
