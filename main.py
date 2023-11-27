@@ -126,7 +126,10 @@ def train(args, logger):
     # move everything to device
     device = args.device
     adj_norm = adj_norm.to(device)
-    T_f = torch.FloatTensor(T_f.toarray()).to(device)
+    try:
+        T_f = torch.FloatTensor(T_f.toarray()).to(device)
+    except:
+        T_f = torch.FloatTensor(T_f).to(device)
     T_cf = torch.FloatTensor(T_cf.toarray()).to(device)
     T_f_val = T_f[val_pairs.T]
     T_f_test = T_f[test_pairs.T]

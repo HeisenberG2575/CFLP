@@ -85,7 +85,7 @@ def multi_class(adj_mat, emb, k, selfloop, method='louvain'):
     elif method=='kcore':
         mem_mat = kcore(adj, True)
 
-    position = emb
+    position = emb.numpy()
     labels = mem_mat[:,].indices
 
     centers = [position[mem_mat[:,ax].toarray().flatten()].mean(axis=0) for ax in range(mem_mat.shape[1])]
