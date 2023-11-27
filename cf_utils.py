@@ -19,6 +19,7 @@ from sknetwork.clustering import Louvain, KMeans, PropagationClustering
 from geomloss import SamplesLoss
 import pysbm
 
+MULTICLASS_DEFAULT_ALGO = 'louvain'
 
 def load_t_files(args, T_file, logger, adj_train):
     # raw node embeddings for nearest neighbor finding: numpy.ndarray
@@ -28,7 +29,10 @@ def load_t_files(args, T_file, logger, adj_train):
         T_f, T_cf, adj_cf, edges_cf_t0, edges_cf_t1 = pickle.load(open(T_file, 'rb'))
         logger.info(f'loaded cached T files: {args.t} {args.k}')
     else:
-        T_f = get_t(adj_train, args.t, args.k, args.selfloopT)
+        if args.t == 'multi_class':
+            T_f = multi_class(adj_train, node_embs_raw, args.k, args.selfloopT, MULTICLASS_DEFAULT_ALGO)
+        else:
+            T_f = get_t(adj_train, node_embs_raw, args.t, args.k, args.selfloopT)
         T_cf, adj_cf, edges_cf_t0, edges_cf_t1 = get_CF(adj_train, node_embs_raw, T_f, args.dist, args.gamma, args.n_workers)
         T_cf = sp.csr_matrix(T_cf)
         adj_cf = sp.csr_matrix(adj_cf)
@@ -36,7 +40,7 @@ def load_t_files(args, T_file, logger, adj_train):
         logger.info(f'calculated and cached T files: {args.t} {args.k}')
     return T_f, edges_cf_t1, edges_cf_t0, T_cf, adj_cf
 
-def get_t(adj_mat, method, k, selfloop=False):
+def get_t(adj_mat, embed, method, k, selfloop=False):
     adj = copy.deepcopy(adj_mat)
     if not selfloop:
         adj.setdiag(0)
@@ -63,20 +67,53 @@ def get_t(adj_mat, method, k, selfloop=False):
         T = SBM(adj, k)
     return T
 
-def SBM(adj, k):
+def multi_class(adj_mat, emb, k, selfloop, method='louvain'):
+    adj = copy.deepcopy(adj_mat)
+    if not selfloop:
+        adj.setdiag(0)
+        adj.eliminate_zeros()
+    if method=='louvain':
+        mem_mat = louvain(adj, True)
+    elif method=='sbm':
+        mem_mat = SBM(adj, k, True)
+    elif method=='hierarchy':
+        mem_mat = ward_hierarchy(adj, k, True)
+    elif method=='propagation':
+        mem_mat = propagation(adj, True)
+    elif method=='spectral_clustering':
+        mem_mat = spectral_clustering(adj, k, True)
+    elif method=='kcore':
+        mem_mat = kcore(adj, True)
+
+    position = emb
+    labels = mem_mat[:,].indices
+
+    centers = [position[mem_mat[:,ax].toarray().flatten()].mean(axis=0) for ax in range(mem_mat.shape[1])]
+    centers = [x/np.linalg.norm(x) for x in centers]
+    centers = np.array([centers[x] for x in labels])
+    
+    T = centers @ centers.T
+    T = (T-np.min(T))/ (np.max(T)-np.min(T))
+    return T
+
+def SBM(adj, k, ret_mem=False):
     nx_g = nx.from_scipy_sparse_matrix(adj)
     standard_partition = pysbm.NxPartition(graph=nx_g, number_of_blocks=k)
     rep = standard_partition.get_representation()
     labels = np.asarray([v for k, v in sorted(rep.items(), key=lambda item: item[0])])
     mem_mat = membership_matrix(labels)
+    if ret_mem:
+        return mem_mat
     T = (mem_mat @ mem_mat.T).astype(int)
     return T
 
-def ward_hierarchy(adj, k):
+def ward_hierarchy(adj, k, ret_mem=False):
     ward = Ward()
     dendrogram = ward.fit_transform(adj)
     labels = cut_straight(dendrogram, k)
     mem_mat = membership_matrix(labels)
+    if ret_mem:
+        return mem_mat
     T = (mem_mat @ mem_mat.T).astype(int)
     return T
 
@@ -123,32 +160,40 @@ def common_neighbors(adj, k):
     T = T.astype(int)
     return T
 
-def louvain(adj):
+def louvain(adj, ret_mem=False):
     louvain = Louvain()
     labels = louvain.fit_transform(adj)
     mem_mat = membership_matrix(labels)
+    if ret_mem:
+        return mem_mat
     T = (mem_mat @ mem_mat.T).astype(int)
     return T
 
-def propagation(adj):
+def propagation(adj, ret_mem=False):
     propagation = PropagationClustering()
     labels = propagation.fit_transform(adj)
     mem_mat = membership_matrix(labels)
+    if ret_mem:
+        return mem_mat
     T = (mem_mat @ mem_mat.T).astype(int)
     return T
 
-def spectral_clustering(adj, k):
+def spectral_clustering(adj, k, ret_mem=False):
     kmeans = KMeans(n_clusters = k, embedding_method=Spectral(256))
     labels = kmeans.fit_transform(adj)
     mem_mat = membership_matrix(labels)
+    if ret_mem:
+        return mem_mat
     T = (mem_mat @ mem_mat.T).astype(int)
     return T
 
-def kcore(adj):
+def kcore(adj, ret_mem=False):
     G = nx.from_scipy_sparse_matrix(adj)
     G.remove_edges_from(nx.selfloop_edges(G))
     labels = np.array(list(nx.algorithms.core.core_number(G).values()))-1
     mem_mat = membership_matrix(labels)
+    if ret_mem:
+        return T,ret_mem
     T = (mem_mat @ mem_mat.T).astype(int)
     return T
 
