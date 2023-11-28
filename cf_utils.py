@@ -19,8 +19,6 @@ from sknetwork.clustering import Louvain, KMeans, PropagationClustering
 from geomloss import SamplesLoss
 import pysbm
 
-MULTICLASS_DEFAULT_ALGO = 'louvain'
-
 def load_t_files(args, T_file, logger, adj_train):
     # raw node embeddings for nearest neighbor finding: numpy.ndarray
     node_embs_raw = pickle.load(open(f'{args.datapath}{args.dataset}_embs-raw{args.embraw}.pkl', 'rb'))
@@ -30,7 +28,7 @@ def load_t_files(args, T_file, logger, adj_train):
         logger.info(f'loaded cached T files: {args.t} {args.k}')
     else:
         if args.t == 'multi_class':
-            T_f = multi_class(adj_train, node_embs_raw, args.k, args.selfloopT, MULTICLASS_DEFAULT_ALGO)
+            T_f = multi_class(adj_train, node_embs_raw, args.k, args.selfloopT, args.mult_cl_t)
         else:
             T_f = get_t(adj_train, node_embs_raw, args.t, args.k, args.selfloopT)
         T_cf, adj_cf, edges_cf_t0, edges_cf_t1 = get_CF(adj_train, node_embs_raw, T_f, args.dist, args.gamma, args.n_workers)
@@ -84,7 +82,8 @@ def multi_class(adj_mat, emb, k, selfloop, method='louvain'):
         mem_mat = spectral_clustering(adj, k, True)
     elif method=='kcore':
         mem_mat = kcore(adj, True)
-
+    else:
+        raise ValueError('Not among specified types louvain,sbm,hierarchy,propagation,spectral_clustering,kcore')
     position = emb.numpy()
     labels = mem_mat[:,].indices
 

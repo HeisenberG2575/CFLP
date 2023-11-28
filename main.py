@@ -26,6 +26,7 @@ def get_args():
     parser.add_argument('--log_dir', type=str, default='logs/')
     parser.add_argument('--embraw', type=str, default='mvgrl')
     parser.add_argument('--t', type=str, default='kcore', help='choice of the treatment function')
+    parser.add_argument('--mult_cl_t', type=str, default='kcore', help='choice of the treatment function for multi class treatment')
     parser.add_argument('--k', type=int, default=2, help='parameter for the treatment function (if needed)')
     parser.add_argument('--selfloopT', default=False, action='store_true', help='whether to add selfloop when getting T')
     parser.add_argument('--dist', type=str, default='euclidean', help='distant metric used when finding nearest neighbors')
