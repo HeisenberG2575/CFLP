@@ -192,7 +192,7 @@ def kcore(adj, ret_mem=False):
     labels = np.array(list(nx.algorithms.core.core_number(G).values()))-1
     mem_mat = membership_matrix(labels)
     if ret_mem:
-        return T,ret_mem
+        return mem_mat
     T = (mem_mat @ mem_mat.T).astype(int)
     return T
 
